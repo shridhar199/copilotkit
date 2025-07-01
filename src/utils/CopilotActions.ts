@@ -1,10 +1,22 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { Action } from "@copilotkit/shared";
+// import { CopilotRuntimeActionContext } from "@copilotkit/backend";
 import { v4 as uuidv4 } from "uuid";
 import {
   CopilotRuntime,
   LangChainAdapter,
 } from '@copilotkit/runtime';
+// import { IncomingMessage } from 'http';
+// interface CopilotKitActionContextWithHeaders {
+//   // This might be the structure when using the `headers` prop on the frontend CopilotKit component
+//   headers: {
+//     authorization?: string; // Or your specific header name if you used a different one
+//     // ... other headers passed from the frontend
+//   };
+//   // Other properties CopilotKit might pass in context (e.g., userId, runId, etc.)
+//   [key: string]: any; // Fallback for other potential properties
+// }
+
 const createRuleAction: Action<any> = {
   name: "createRule",
   description: "Create a new business rule in the backend",
@@ -24,6 +36,7 @@ const createRuleAction: Action<any> = {
     eventType,
     eventValue,
   }) => {
+    // console.log("context", context)
     const rule_set_id = uuidv4();
     const operatorMap: Record<string, string> = {
       ">": "greaterThan",
@@ -31,6 +44,7 @@ const createRuleAction: Action<any> = {
       "<": "lessThan",
       "<=": "lessThanInclusive",
       "==": "equal",
+      "=": "equal",
       "!=": "notEqual",
       "in": "in",
       "notIn": "notIn"
@@ -103,6 +117,12 @@ const updateRuleAction: Action<any> = {
           required: false,
         },
         {
+          name: "newActive",
+          type: "string",
+          description: "New active for the rule (optional).",
+          required: false,
+        },
+        {
           name: "conditionUpdates",
           type: "object[]",
           description: "Conditions to update (provide fact/value/operator).",
@@ -128,6 +148,8 @@ const updateRuleAction: Action<any> = {
   ],
   handler: async ({ ruleName, updates }) => {
     // 1. Fetch the rule by name to get current IDs
+    // console.log("headeers",header)
+    // console.log("context")
     const fetchResponse = await fetch(
       `${process.env.SERVER_RULE_ENGINE_URL}/rules/name/${encodeURIComponent(ruleName)}`
     );
@@ -138,6 +160,8 @@ const updateRuleAction: Action<any> = {
 
     // 2. Prepare condition updates (map user input to existing IDs)
     const ruleSetId = currentRule.data.id
+    const active = currentRule.data.active
+    const updatedActive = JSON.parse(updates.newActive)
     const updatedConditions = updates.conditionUpdates?.map((update:any) => {
       const existingCondition = currentRule.data.conditions.find(
         (c: any) => c.ruleSetId === ruleSetId
@@ -177,7 +201,8 @@ const updateRuleAction: Action<any> = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: updates.newName || ruleName, // Keep current name if not provided
+          name: updates.newName || ruleName,
+          active: updates.newActive ? updatedActive : active, // Keep current name if not provided
           conditions: updatedConditions || currentRule.conditions,
           events: updatedEvents || currentRule.events,
         }),
@@ -208,6 +233,12 @@ const deleteRuleAction: Action<any> = {
     }
   ],
   handler: async ({ ruleName }) => {
+        // const req = context.req;
+
+    // --- CONSOLE.LOG THE HEADERS HERE ---
+    // console.log("Incoming Request Headers:", context);
+    // console.log("Authorization Header:", req.headers.authorization)
+    // console.log("headers",context)
     const response = await fetch(
       `${process.env.SERVER_RULE_ENGINE_URL}/rules/delete/${encodeURIComponent(ruleName)}`,
       {
@@ -240,6 +271,7 @@ const model = new ChatGoogleGenerativeAI({
 export const runtime = new CopilotRuntime({
     actions:[createRuleAction, updateRuleAction, deleteRuleAction]
 });
+
 
 export const serviceAdapter = new LangChainAdapter({
   chainFn: async ({ messages, tools, threadId }) => {

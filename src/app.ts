@@ -5,6 +5,10 @@ import {
   copilotRuntimeNodeHttpEndpoint,
 } from '@copilotkit/runtime';
 import { runtime, serviceAdapter } from "./utils/CopilotActions";
+// import { injectAuthContext } from './middlewares/injectContext';
+
+// Add this before your CopilotKit route
+
 
 const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
@@ -31,10 +35,15 @@ app.use(express.json());
 app.use(logRequestResponse);
 
 // app.use("/api/v1/copilotkit", copilotRoutes)
+// app.use(requestContextMiddleware);
 
 app.use('/api/v1/copilotkit', (req, res, next) => {
   (async () => {
-    // const runtime = new CopilotRuntime();
+    // // const runtime = new CopilotRuntime();
+    //     (req as any).copilotContext = {
+    //   headers: req.headers,
+    //   token: req.headers.authorization,
+    // };
     const handler = copilotRuntimeNodeHttpEndpoint({
       endpoint: '/copilotkit',
       runtime,
